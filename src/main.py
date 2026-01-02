@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, Response
 from fastapi import Request
-from stockgenie import run_agent
+from agents.stockgenie import run_agent
 import time
 import json
 from config.config import TEMPLATE_DIR 

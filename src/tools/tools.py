@@ -1,3 +1,4 @@
+import os
 from langchain_core.tools import tool
 import pandas as pd
 import yaml
@@ -5,17 +6,15 @@ import requests
 import yfinance as yf
 from pathlib import Path
 import chromadb
-from config.config import PROMPTS_PATH
+from config.config import PROMPTS_PATH, DATA_DIR, VECDB_PATH
 
 with open(PROMPTS_PATH, "r") as f:
     data = yaml.safe_load(f)
 
-
-
 @tool
 def inventory_search_tool(ticker: str):
    """Search client investment inventory to find holding value and number of units information with ticker name"""
-   holding_data = pd.read_csv('kis_holding_df.csv')
+   holding_data = pd.read_csv(os.path.join(DATA_DIR, 'kis_holding_df.csv'))
    price = holding_data[holding_data['ticker']==ticker]['price'].values[0]
    units = holding_data[holding_data['ticker']==ticker]['qty'].values[0]
    profit = holding_data[holding_data['ticker']==ticker]['profit_rate'].values[0]
@@ -35,13 +34,14 @@ def market_price_tool(ticker: str):
 @tool
 def news_search_tool(company: str):
     """fetch public news related to the company"""
-    chroma_client = chromadb.PersistentClient(path="chroma_db")
+    chroma_client = chromadb.PersistentClient(path=VECDB_PATH)
     collection = chroma_client.get_or_create_collection(name="news_collection")
 
     results = collection.query(
-        query_texts=[f"recent news about {company}"],
-        n_results=3
+        query_texts=[f"the most recent news about {company}"],
+        n_results=5
     )
+    print(results[0])
     return results["documents"][0] if results and results["documents"] else []
 ''' 
 @tool

@@ -1,5 +1,10 @@
 import os
 import sys
+from pathlib import Path
+
+root_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(root_dir))
+
 import operator
 from typing import TypedDict, Annotated
 from dotenv import load_dotenv
@@ -9,11 +14,14 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
 from tools.tools import inventory_search_tool, market_price_tool, news_search_tool, get_prompt
-# Load environment variables
-load_dotenv(".env")
+from config.config import ENV_PATH
+
+
+load_dotenv(ENV_PATH,override=True)
 api_key = os.getenv("OPENAI_API_KEY")
 
-# Initialize model and checkpointer
+print(api_key)
+
 model = ChatOpenAI(api_key=api_key, model="gpt-4o")
 checkpointer = MemorySaver()
 
@@ -76,7 +84,6 @@ class Agent:
         result = state['messages'][-1]
         return len(getattr(result, "tool_calls", [])) > 0
 
-# Recursive message extractor
 def extract_messages(result):
     msgs = []
     if isinstance(result, dict):
