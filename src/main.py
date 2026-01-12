@@ -6,6 +6,7 @@ import json
 from config.config import TEMPLATE_DIR 
 import os
 from flask import request
+
 app = Flask(__name__)
 
 @app.route("/")

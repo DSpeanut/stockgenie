@@ -7,6 +7,7 @@ import yfinance as yf
 from pathlib import Path
 import chromadb
 from config.config import PROMPTS_PATH, DATA_DIR, VECDB_PATH
+from datetime import datetime, timedelta
 
 with open(PROMPTS_PATH, "r") as f:
     data = yaml.safe_load(f)
@@ -15,20 +16,25 @@ with open(PROMPTS_PATH, "r") as f:
 def inventory_search_tool(ticker: str):
    """Search client investment inventory to find holding value and number of units information with ticker name"""
    holding_data = pd.read_csv(os.path.join(DATA_DIR, 'kis_holding_df.csv'))
-   price = holding_data[holding_data['ticker']==ticker]['price'].values[0]
-   units = holding_data[holding_data['ticker']==ticker]['qty'].values[0]
-   profit = holding_data[holding_data['ticker']==ticker]['profit_rate'].values[0]
-   return f"price: {price}, units: {units}, profit_rate: {profit}"
+   stock = holding_data[holding_data['ovrs_pdno']==ticker]
+   name = stock['ovrs_name'].values[0]
+   units = stock['ovrs_cblc_qty'].values[0]
+   average_price = stock['pchs_avg_pric'].values[0]
+   now_price =stock['pchs_avg_pric'].values[0]
+   performance = stock['evlu_pfls_rt'].values[0]
+   current_evaluation = stock['ovrs_stck_evlu_amt'].values[0]
+   return f"stock: {stock}, stock name: {name}, purchased unites: {units}, average price: {average_price}, current price: {now_price}, \
+   performance: {performance}, current evaluation: {current_evaluation}"
 
 @tool
 def market_price_tool(ticker: str):
-    """fetch market price on last business day with a ticker"""
-    ticker = yf.Ticker(ticker)  # Apple
+    """fetch market stock price on last business day with a ticker"""
     try:
-        price = ticker.history(period="1d")["Close"]
+        ticker_info = yf.Ticker(ticker)
+        latest_price = ticker_info.history(period='5d').reset_index()['Close'].values[-1]
     except:
-        price = "Currently Service is not available and no data found for the given ticker."
-    return price
+        latest_price = "Currently Service is not available and no data found for the given ticker."
+    return f"price for {ticker} from the latest date is {latest_price}"
 
 
 @tool
