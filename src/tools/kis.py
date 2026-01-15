@@ -24,4 +24,6 @@ result = inquire_balance(cano=trenv.my_acct, acnt_prdt_cd=trenv.my_prod, ovrs_ex
 
 result[0].to_csv(INVENTORY_PATH, index=False)
 
+info = search_info(prdt_type_cd='512', pdno='AAPL')
+print(info.transpose())
 

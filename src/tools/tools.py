@@ -6,11 +6,25 @@ import requests
 import yfinance as yf
 from pathlib import Path
 import chromadb
-from config.config import PROMPTS_PATH, DATA_DIR, VECDB_PATH
+from config.config import PROMPTS_PATH, DATA_DIR, VECDB_PATH, ENV_PATH
 from datetime import datetime, timedelta
+import certifi
+import json
+from urllib.request import urlopen
+from dotenv import load_dotenv
+
+load_dotenv(ENV_PATH,override=True)
+FMP_API_KEY = os.getenv("FMP_API_KEY")
+
 
 with open(PROMPTS_PATH, "r") as f:
     data = yaml.safe_load(f)
+
+
+def get_jsonparsed_data(url):
+    response = urlopen(url, cafile=certifi.where())
+    data = response.read().decode("utf-8")
+    return json.loads(data)
 
 @tool
 def inventory_search_tool(ticker: str):
@@ -49,33 +63,69 @@ def news_search_tool(company: str):
     )
     print(results[0])
     return results["documents"][0] if results and results["documents"] else []
-''' 
+
+
 @tool
-def search_per_pbr_score(ticker: str):
-   """Search per and pbr for stock with ticker name"""
-   per = 0
-   pbr = 0
+def calculate_per_pbr_score(ticker: str):
+    """Search per and pbr for stock with ticker name"""
+    per = 0
+    pbr = 0
 
-   if per>=10: 
-       per_score = 5
-   elif 8<per<10:
-       per_score = 10
-    elif 5<per<=8:
-       per_score = 15
-    else :
-       per_score = 20
-    
-    if pbr>=10: 
-       pbr_score = 5
-    elif 8<pbr<10:
-        pbr_score = 10
-    elif 5<pbr]<=8:
-       pbr_score = 15
-    else :
-       pbr_score = 20
+    # Calculate PER score
+    if per >= 10: 
+        per_score = 5
+    elif 8 < per < 10:
+        per_score = 10
+    elif 5 < per <= 8:
+        per_score = 15
+    else:
+        per_score = 20
 
-   return f"price: {holding_price}, units: {holding_units}"
-'''
+    # Calculate PBR score
+    if pbr >= 1.0: 
+        pbr_score = 0
+    elif 0.6 < pbr <= 1.0:
+        pbr_score = 3
+    elif 0.3 < pbr <= 0.6:
+        pbr_score = 4
+    else:
+        pbr_score = 5
+
+    return f"PER score: {per_score}, PBR score: {pbr_score}"
+
+@tool
+def search_company_general_info(ticker: str):
+    """Search for company information with ticker name such as current price, market capital size, beta, last dividend, price range, change percentage from previous day, stock volume, description"""
+    company_info_serach_url = (f"https://financialmodelingprep.com/stable/profile?symbol={ticker}&apikey={FMP_API_KEY}")
+    result = get_jsonparsed_data(company_info_serach_url)[0]
+    current_price = result['price']
+    market_cap = result['marketCap']
+    beta = result['beta']
+    lastDividend = str(result['lastDividend'])+'$'
+    price_range = result['range']
+    change_percentage_price_previousday = result['changePercentage']
+    stock_volume = result['volume']
+    stock_description = result['description']
+    return f"Current Price: {current_price}$, Market Cap: {market_cap}$, Beta: {beta}, Last Dividend: {lastDividend}, Price Range: {price_range}, Change Percentage from Previous Day: {change_percentage_price_previousday}%, Stock Volume: {stock_volume}, Description: {stock_description}"
+
+@tool
+def fetch_employee_history(ticker: str):
+    """ search for historical employee count and recent 5 trends with ticker name"""
+    employee_url = (f"https://financialmodelingprep.com/stable/historical-employee-count?symbol={ticker}&apikey={FMP_API_KEY}")
+    response = urlopen(employee_url, cafile=certifi.where())
+    data = json.loads(response.read().decode('utf-8'))
+    sorted_data = sorted(data, key=lambda x: x['periodOfReport'], reverse=True)
+    trend_list = []
+    for i in range(5):
+        current_val = sorted_data[i]['employeeCount']
+        previous_val = sorted_data[i+1]['employeeCount']
+        change = ((current_val - previous_val) / previous_val) * 100
+        direction = "Increase" if change > 0 else "Decrease"
+        trend_list.append(f"{sorted_data[i]['periodOfReport']}: {change:.2f}% {direction}")
+    most_recent_employees = sorted_data[0]['employeeCount']
+    return f"Most Recent Count: {most_recent_employees}, Latest 5 employee count trends: {trend_list}"
+
+
 
 # Example: fetch one prompt by name
 def get_prompt(name, **kwargs):

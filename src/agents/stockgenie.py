@@ -13,27 +13,18 @@ from langgraph.graph import StateGraph, END
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
-from tools.tools import inventory_search_tool, market_price_tool, news_search_tool, get_prompt
+from tools.tools import inventory_search_tool, market_price_tool, news_search_tool, calculate_per_pbr_score,search_company_general_info,fetch_employee_history,get_prompt
 from config.config import ENV_PATH
 
-
 load_dotenv(ENV_PATH,override=True)
-api_key = os.getenv("OPENAI_API_KEY")
+OPENAI_API = os.getenv("OPENAI_API_KEY")
 
-print(api_key)
-
-model = ChatOpenAI(api_key=api_key, model="gpt-4o")
+model = ChatOpenAI(api_key=OPENAI_API, model="gpt-4o")
 checkpointer = MemorySaver()
 
-# Augment the LLM with tools
-tools = [market_price_tool, inventory_search_tool, news_search_tool]
-
-
-# AgentState
 class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
 
-# Agent class
 class Agent:
     def __init__(self, model, tools, checkpointer, system=""):
         self.system = system
@@ -84,24 +75,9 @@ class Agent:
         result = state['messages'][-1]
         return len(getattr(result, "tool_calls", [])) > 0
 
-def extract_messages(result):
-    msgs = []
-    if isinstance(result, dict):
-        for val in result.values():
-            if isinstance(val, list):
-                for item in val:
-                    if hasattr(item, 'content') or hasattr(item, 'tool_calls'):
-                        msgs.append(item)
-                    elif isinstance(item, dict):
-                        msgs.extend(extract_messages(item))
-            elif isinstance(val, dict):
-                msgs.extend(extract_messages(val))
-    return msgs
-
-# Initialize agent
 agent_bot = Agent(
     model,
-     [inventory_search_tool, market_price_tool, news_search_tool],
+    [market_price_tool, inventory_search_tool, news_search_tool,calculate_per_pbr_score,search_company_general_info,fetch_employee_history],
     checkpointer=checkpointer,
     system=get_prompt("STOCK_GENIE_SYSTEM_PROMPT")
 )
@@ -121,7 +97,7 @@ def run_agent(user_input, thread_id="default"):
     
     return "No response generated"
 
-def main():
+if __name__ == "__main__":
     """Main CLI function"""
     print("=" * 60)
     print("Stock Genie CLI")
@@ -139,13 +115,11 @@ def main():
         # Check for exit command
         if user_input.lower() in ['exit', 'quit']:
             print("\nGoodbye!")
-            return
         
         print(f"\nYou: {user_input}")
         print("\nAgent: ", end="", flush=True)
         response = run_agent(user_input, thread_id)
         print(response)
-        return
     
     # Interactive mode
     while True:
@@ -174,6 +148,3 @@ def main():
         except Exception as e:
             print(f"\nError: {str(e)}")
             print("Please try again.")
-
-if __name__ == "__main__":
-    main()
