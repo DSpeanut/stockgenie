@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 load_dotenv(ENV_PATH,override=True)
 FMP_API_KEY = os.getenv("FMP_API_KEY")
 
-
 with open(PROMPTS_PATH, "r") as f:
     data = yaml.safe_load(f)
 
@@ -31,7 +30,7 @@ def inventory_search_tool(ticker: str):
    """Search client investment inventory to find holding value and number of units information with ticker name"""
    holding_data = pd.read_csv(os.path.join(DATA_DIR, 'kis_holding_df.csv'))
    stock = holding_data[holding_data['ovrs_pdno']==ticker]
-   name = stock['ovrs_name'].values[0]
+   name = stock['ovrs_item_name'].values[0]
    units = stock['ovrs_cblc_qty'].values[0]
    average_price = stock['pchs_avg_pric'].values[0]
    now_price =stock['pchs_avg_pric'].values[0]
@@ -90,8 +89,49 @@ def calculate_per_pbr_score(ticker: str):
         pbr_score = 4
     else:
         pbr_score = 5
-
     return f"PER score: {per_score}, PBR score: {pbr_score}"
+
+
+@tool
+def get_trend_signals(ticker: str):
+    """Search for technical trend signals such as moving average, RSI, MACD for a ticker"""
+    df = yf.download(ticker, period="1y")
+    # Moving averages
+    df["MA50"]  = df["Close"].rolling(50).mean()
+    df["MA200"] = df["Close"].rolling(200).mean()
+    # RSI
+    delta = df["Close"].diff()
+    gain  = delta.clip(lower=0).rolling(14).mean()
+    loss  = (-delta.clip(upper=0)).rolling(14).mean()
+    rs    = gain / loss
+    df["RSI"] = 100 - (100 / (1 + rs))
+    # MACD
+    ema12      = df["Close"].ewm(span=12).mean()
+    ema26      = df["Close"].ewm(span=26).mean()
+    df["MACD"] = ema12 - ema26
+    df["Signal"] = df["MACD"].ewm(span=9).mean()
+    return f"Latest 5 days trend signals for {ticker}: {df[['Close','MA50','MA200','RSI','MACD','Signal']].tail(5).to_dict(orient='records')}"
+
+@tool
+def fetch_financial_metrics(ticker: str):
+    """Search for financial metrics such as P/E, P/B, PEG, ROE, net profit margin, Ebitda margin, debt-to-equity, current ratio, EPS (trailing), and free cash flow for a ticker"""
+    yf_ticker = yf.Ticker(ticker)
+    info = yf_ticker.info or {}
+    metrics = {
+        "P/E Ratio":          info.get("trailingPE"),
+        "Forward P/E":        info.get("forwardPE"),
+        "P/B Ratio":          info.get("priceToBook"),
+        "PEG Ratio":          info.get("pegRatio"),
+        "ROE":                info.get("returnOnEquity"),
+        "Net Profit Margin":  info.get("profitMargins"),
+        "Ebitda Margin":      info.get("ebitdaMargins"),
+        "Debt-to-Equity":     info.get("debtToEquity"),
+        "Current Ratio":      info.get("currentRatio"),
+        "EPS (trailing)":     info.get("trailingEps"),
+        "Free Cash Flow":     info.get("freeCashflow"),
+    }
+
+    return f"Trailing P/E: {metrics['P/E Ratio']}, Forward P/E: {metrics['Forward P/E']}, Price-to-Book: {metrics['P/B Ratio']}, PEG Ratio: {metrics['PEG Ratio']}, ROE: {metrics['ROE']}, Net Profit Margin: {metrics['Net Profit Margin']}, Ebitda Margin: {metrics['Ebitda Margin']}, Debt-to-Equity: {metrics['Debt-to-Equity']}, Current Ratio: {metrics['Current Ratio']}, EPS (trailing): {metrics['EPS (trailing)']}, Free Cash Flow: {metrics['Free Cash Flow']}"
 
 @tool
 def search_company_general_info(ticker: str):
@@ -124,8 +164,6 @@ def fetch_employee_history(ticker: str):
         trend_list.append(f"{sorted_data[i]['periodOfReport']}: {change:.2f}% {direction}")
     most_recent_employees = sorted_data[0]['employeeCount']
     return f"Most Recent Count: {most_recent_employees}, Latest 5 employee count trends: {trend_list}"
-
-
 
 # Example: fetch one prompt by name
 def get_prompt(name, **kwargs):

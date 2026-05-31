@@ -13,7 +13,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
-from tools.tools import inventory_search_tool, market_price_tool, news_search_tool, calculate_per_pbr_score,search_company_general_info,fetch_employee_history,get_prompt
+from tools.tools import inventory_search_tool,fetch_financial_metrics, market_price_tool, get_trend_signals, news_search_tool, calculate_per_pbr_score,search_company_general_info,fetch_employee_history,get_prompt
 from config.config import ENV_PATH
 
 load_dotenv(ENV_PATH,override=True)
@@ -77,7 +77,7 @@ class Agent:
 
 agent_bot = Agent(
     model,
-    [market_price_tool, inventory_search_tool, news_search_tool,calculate_per_pbr_score,search_company_general_info,fetch_employee_history],
+    [market_price_tool, inventory_search_tool, news_search_tool,get_trend_signals,calculate_per_pbr_score,fetch_financial_metrics,search_company_general_info,fetch_employee_history],
     checkpointer=checkpointer,
     system=get_prompt("STOCK_GENIE_SYSTEM_PROMPT")
 )
