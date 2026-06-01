@@ -16,5 +16,3 @@ prompts:
       Step 1. search holding information) Search holding investment inventory using onlhy ticker to analyze how many units and price client is holding
       Step 2. fetch markt price) Check current market price to determine holding position using ticker
       Step 3. search news) Check stock related to news and analyze sentiment of the news using company name
-      
-

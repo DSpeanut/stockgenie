@@ -1,7 +1,7 @@
 [project]
 name = "stockgenie"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-powered financial advisor for high-net-worth individuals."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,5 +14,43 @@ dependencies = [
     "newsapi>=0.1.1",
     "newsapi-python==0.2.7",
     "pandas>=2.3.3",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
     "pykis>=0.7.0",
+    "pyyaml>=6.0",
+    "yfinance>=0.2.54",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[project.scripts]
+stockgenie = "app.api:app"
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "core*", "tools*", "config*", "db*", "services*"]
+exclude = ["tests*", "notebooks*", "scripts*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
+ignore_missing_imports = true

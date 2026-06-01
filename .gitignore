@@ -1,0 +1,14 @@
+.venv
+uv.lock
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info
+.python-version
+.DS_Store
+secret.json
+chroma_db/
+opentradingapi/
+.pytest_cache/
+.ruff_cache/
