@@ -1,7 +1,52 @@
-import os
-
+import re
 import yfinance as yf
 from langchain_core.tools import tool
+
+
+
+@tool
+def currency_status_tool(currencies: str = "USD,EUR,JPY,KRW"):
+    """Fetch the currency status between usd, eur, krw, jpy and history using yfinance."""
+    symbols = [s.upper() for s in re.split(r"[;,\s]+", currencies or "") if s] or list(CURRENCY_TICKER_MAP)
+    periods = {"1w": 5, "1m": 21, "3m": 63, "6m": 126}
+    out = {"summary": [], "data": {}}
+    CURRENCY_TICKER_MAP = {
+    "EUR": "USDEUR=X",
+    "JPY": "USDJPY=X",
+    "KRW": "USDKRW=X",
+    }
+
+    for symbol in symbols:
+        ticker = CURRENCY_TICKER_MAP.get(symbol, f"{symbol}USD=X")
+        history = yf.Ticker(ticker).history(period="6mo")
+        if history.empty or "Close" not in history:
+            out["data"][symbol] = {"ticker": ticker, "error": "no data"}
+            out["summary"].append(f"{symbol}: no data")
+            continue
+
+        closes = history["Close"].dropna()
+        if closes.empty:
+            out["data"][symbol] = {"ticker": ticker, "error": "no valid prices"}
+            out["summary"].append(f"{symbol}: no valid prices")
+            continue
+
+        latest = float(closes.iloc[-1])
+        changes = {
+            k: None
+            if (p := float(closes.iloc[max(0, len(closes) - d - 1)])) == 0
+            else round((latest - p) / p * 100, 4)
+            for k, d in periods.items()
+        }
+        out["data"][symbol] = {"ticker": ticker, "latest": latest, "change": changes}
+        out["summary"].append(
+            f"{symbol}: {latest:.4f} | "
+            + " | ".join(
+                f"{k} {'n/a' if v is None else f'{v:+.2f}%'}" for k, v in changes.items()
+            )
+        )
+
+    out["summary"] = "\n".join(out["summary"])
+    return out
 
 
 @tool

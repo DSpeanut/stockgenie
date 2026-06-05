@@ -1,9 +1,6 @@
-"""Application entrypoint: Flask web server with SSE chat endpoint."""
+"""Application entrypoint: Flask web server with chat endpoint."""
 
-import json
-import time
-
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request
 
 from core.agent import run_agent
 
@@ -28,16 +25,8 @@ def chat():
         if not question:
             return jsonify({"answer": "Please provide a question."})
 
-        def generate():
-            answer = run_agent(question, thread_id)
-            words = answer.split()
-            for word in words:
-                payload = json.dumps({"word": word + " ", "done": False})
-                yield f"data: {payload}\n\n"
-                time.sleep(0.05)
-            yield f"data: {json.dumps({'word': '', 'done': True})}\n\n"
-
-        return Response(generate(), mimetype="text/event-stream")
+        answer = run_agent(question, thread_id)
+        return jsonify({"answer": answer})
     except Exception as e:
         return jsonify({"answer": f"Error: {e!s}"}), 500
 

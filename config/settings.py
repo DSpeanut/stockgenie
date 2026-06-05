@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    openai_api_base: str | None = Field(default=None, alias="OPENAI_API_BASE")
+    openai_model_name: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
     fmp_api_key: str = Field(default="", alias="FMP_API_KEY")
     newsapi_key: str = Field(default="", alias="NEWSAPI_KEY")
     debug: bool = Field(default=False, alias="DEBUG")

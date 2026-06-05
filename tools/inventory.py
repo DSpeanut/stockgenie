@@ -10,7 +10,7 @@ from config.settings import DATA_DIR, INVENTORY_PATH
 
 @tool
 def inventory_search_tool(ticker: str):
-    """Search client investment inventory by ticker."""
+    """Search client investment portfolio and holding by ticker."""
     holding_data = pd.read_csv(INVENTORY_PATH)
     stock = holding_data[holding_data["ovrs_pdno"] == ticker]
     name = stock["ovrs_item_name"].values[0]
@@ -24,3 +24,9 @@ def inventory_search_tool(ticker: str):
         f"average price: {average_price}, current price: {now_price}, "
         f"performance: {performance}, current evaluation: {current_evaluation}"
     )
+
+@tool
+def portfolio_overview_tool():
+    """Provide an overview of the client's investment portfolio."""
+    holding_data = pd.read_csv(INVENTORY_PATH)
+    return holding_data

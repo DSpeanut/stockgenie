@@ -1,0 +1,13 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - heading "Stock Genie" [level=1] [ref=e3]
+    - paragraph [ref=e4]: Your personal AI investing advisor
+  - generic [ref=e5]:
+    - generic [ref=e12]: What is the current price of AAPL?
+    - paragraph [ref=e19]: "Error: Could not connect to server. HTTP error! status: 500"
+  - generic [ref=e6]:
+    - textbox "Ask about stocks, portfolios, or market trends..." [active] [ref=e7]
+    - generic [ref=e8]:
+      - checkbox "Format as Markdown" [ref=e9]
+      - generic [ref=e10]: Format as Markdown
+    - button "Send" [ref=e20] [cursor=pointer]
