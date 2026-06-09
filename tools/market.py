@@ -6,48 +6,64 @@ from langchain_core.tools import tool
 
 @tool
 def currency_status_tool(currencies: str = "USD,EUR,JPY,KRW"):
-    """Fetch the currency status between usd, eur, krw, jpy and history using yfinance."""
-    symbols = [s.upper() for s in re.split(r"[;,\s]+", currencies or "") if s] or list(CURRENCY_TICKER_MAP)
-    periods = {"1w": 5, "1m": 21, "3m": 63, "6m": 126}
+    """Simple currency status: latest price, 1-week and 1-month percent changes.
+
+    Returns a dict: {summary, data} where data[currency] = {ticker, latest, 1w, 1m}.
+    """
+    symbols = [s.upper() for s in re.split(r"[;,\s]+", currencies or "") if s] or ["USD", "EUR", "JPY", "KRW"]
+    M = {"USD": "^DXY", "EUR": "EURUSD=X", "JPY": "USDJPY=X", "KRW": "USDKRW=X"}
     out = {"summary": [], "data": {}}
-    CURRENCY_TICKER_MAP = {
-    "EUR": "USDEUR=X",
-    "JPY": "USDJPY=X",
-    "KRW": "USDKRW=X",
-    }
 
     for symbol in symbols:
-        ticker = CURRENCY_TICKER_MAP.get(symbol, f"{symbol}USD=X")
-        history = yf.Ticker(ticker).history(period="6mo")
-        if history.empty or "Close" not in history:
-            out["data"][symbol] = {"ticker": ticker, "error": "no data"}
-            out["summary"].append(f"{symbol}: no data")
-            continue
+        ticker = M.get(symbol, f"{symbol}USD=X")
+        try:
+            hist = yf.Ticker(ticker).history(period="1mo")
+            if hist.empty or "Close" not in hist:
+                out["data"][symbol] = {"ticker": ticker, "error": "no data"}
+                out["summary"].append(f"{symbol}: no data")
+                continue
 
-        closes = history["Close"].dropna()
-        if closes.empty:
-            out["data"][symbol] = {"ticker": ticker, "error": "no valid prices"}
-            out["summary"].append(f"{symbol}: no valid prices")
-            continue
+            closes = hist["Close"].dropna()
+            if closes.empty:
+                out["data"][symbol] = {"ticker": ticker, "error": "no valid prices"}
+                out["summary"].append(f"{symbol}: no valid prices")
+                continue
 
-        latest = float(closes.iloc[-1])
-        changes = {
-            k: None
-            if (p := float(closes.iloc[max(0, len(closes) - d - 1)])) == 0
-            else round((latest - p) / p * 100, 4)
-            for k, d in periods.items()
-        }
-        out["data"][symbol] = {"ticker": ticker, "latest": latest, "change": changes}
-        out["summary"].append(
-            f"{symbol}: {latest:.4f} | "
-            + " | ".join(
-                f"{k} {'n/a' if v is None else f'{v:+.2f}%'}" for k, v in changes.items()
-            )
-        )
+            latest = float(closes.iloc[-1])
+            idx_1w = max(0, len(closes) - 5 - 1)
+            idx_1m = 0
+            prior_1w = float(closes.iloc[idx_1w])
+            prior_1m = float(closes.iloc[idx_1m])
 
-    out["summary"] = "\n".join(out["summary"])
+            def pct(a, b):
+                return None if b == 0 else round((a - b) / b * 100, 2)
+
+            out["data"][symbol] = {
+                "ticker": ticker,
+                "latest": latest,
+                "1w": pct(latest, prior_1w),
+                "1m": pct(latest, prior_1m),
+            }
+            out["summary"].append(f"{symbol}: {latest:.4f} | 1w {out['data'][symbol]['1w']}% | 1m {out['data'][symbol]['1m']}%")
+        except Exception as e:
+            out["data"][symbol] = {"ticker": ticker, "error": str(e)}
+            out["summary"].append(f"{symbol}: error")
+
+    out["summary"] = "; ".join(out["summary"])
     return out
 
+
+@tool
+def get_benchmark_tool(ticker: str, time_window: str ):
+    """Fetch concise benchmarks for core US indices. Some benchmark examples are S&P 500, Nasdaq Composite, Dow Jones Industrial Average, Russell 2000.
+    Use the corresponding tickers to fetch the information. For example, S&P 500 is ^GSPC, Nasdaq Composite is ^IXIC, Dow Jones Industrial Average is ^DJI, Russell 2000 is ^RUT.
+    available period are 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd. choose the time window accordingly
+    Returns oldest and latest closing price for the given time window.
+    """
+    history = yf.Ticker(ticker).history(period=time_window)
+    open_benchmark = history["Open"].dropna().iloc[0] 
+    closes_benchmark = history["Close"].dropna().iloc[-1]
+    return f'Oldest closing price: {open_benchmark}, Latest closing price: {closes_benchmark}'
 
 @tool
 def market_price_tool(ticker: str):
