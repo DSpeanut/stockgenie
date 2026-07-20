@@ -1,17 +1,17 @@
 """Agent orchestration: LangGraph nodes and conditional edges."""
 
-from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END
 
+from core.router import route_question
+from core.skills import SkillSpec
 from core.state import AgentState
 
 
 class Agent:
     """Re-entrant agent that binds an LLM to a set of tools via a compiled graph."""
-
     def __init__(self, model, tools, checkpointer, system: str = ""):
         from langgraph.graph import StateGraph
-
         self.system = system
         self.tools = {t.name: t for t in tools}
         self.model = model.bind_tools(tools)
@@ -67,10 +67,84 @@ class Agent:
         return len(getattr(result, "tool_calls", [])) > 0
 
 
-def run_agent(user_input: str, thread_id: str = "default") -> str:
-    from core.graph import build_agent
+class Orchestrator:
+    """Top-level graph: routes each turn to either the general loop or a scoped skill loop.
 
-    agent = build_agent()
+    Both branches run the same `llm <-> action` loop shape (via `Agent`), just bound to
+    different instructions and a different tool list. `general_exec` and `skill_exec` invoke
+    their agent's compiled graph imperatively rather than nesting it as a LangGraph subgraph,
+    so each branch gets its own independent recursion budget that never counts against the
+    outer graph's.
+    """
+
+    GENERAL_RECURSION_LIMIT = 15
+    SKILL_RECURSION_LIMIT = 20
+
+    def __init__(self, model, general_agent: Agent, skills: list[SkillSpec], checkpointer):
+        from langgraph.graph import StateGraph
+
+        self.model = model
+        self.general_agent = general_agent
+        self.skills_by_name = {s.name: s for s in skills}
+        self._skill_agents: dict[str, Agent] = {}
+
+        graph = StateGraph(AgentState)
+        graph.add_node("router", self._route)
+        graph.add_node("general_exec", self._run_general)
+        graph.add_node("skill_exec", self._run_skill)
+        graph.add_conditional_edges(
+            "router",
+            lambda state: state["route"],
+            {"general": "general_exec", **{name: "skill_exec" for name in self.skills_by_name}},
+        )
+        graph.add_edge("general_exec", END)
+        graph.add_edge("skill_exec", END)
+        graph.set_entry_point("router")
+        self.graph = graph.compile(checkpointer=checkpointer)
+
+    def _route(self, state: AgentState):
+        route = route_question(self.model, state["messages"], list(self.skills_by_name.values()))
+        return {"route": route}
+
+    def _run_general(self, state: AgentState):
+        result = self.general_agent.graph.invoke(
+            {"messages": state["messages"]},
+            {"recursion_limit": self.GENERAL_RECURSION_LIMIT},
+        )
+        return {"messages": [result["messages"][-1]]}
+
+    def _run_skill(self, state: AgentState):
+        skill = self.skills_by_name[state["route"]]
+        agent = self._get_skill_agent(skill)
+        result = agent.graph.invoke(
+            {"messages": state["messages"]},
+            {"recursion_limit": self.SKILL_RECURSION_LIMIT},
+        )
+        return {"messages": [result["messages"][-1]]}
+
+    def _get_skill_agent(self, skill: SkillSpec) -> Agent:
+        if skill.name not in self._skill_agents:
+            self._skill_agents[skill.name] = Agent(
+                model=self.model, tools=skill.tools, checkpointer=None, system=skill.instructions
+            )
+        return self._skill_agents[skill.name]
+
+
+_agent: Orchestrator | None = None
+
+
+def get_agent() -> Orchestrator:
+    """Return a process-wide singleton orchestrator so conversation memory persists across requests."""
+    global _agent
+    if _agent is None:
+        from core.graph import build_agent
+
+        _agent = build_agent()
+    return _agent
+
+
+def run_agent(user_input: str, thread_id: str = "default") -> str:
+    agent = get_agent()
     # Server-side formatting: request Markdown-structured output with explicit line breaks
     formatting_hint = (
         "FORMAT YOUR ANSWER USING MARKDOWN WITH THESE RULES:\n"

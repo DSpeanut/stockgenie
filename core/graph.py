@@ -1,13 +1,12 @@
 """LangGraph construction and compilation."""
 
-from langgraph.graph import END, StateGraph
 from langchain_openai import ChatOpenAI
 from langchain_openrouter import ChatOpenRouter
 
 from config.settings import settings
 import os
-from core.agent import Agent
-from core.state import AgentState
+from core.agent import Agent, Orchestrator
+from core.skills import SKILLS
 from tools.finance import (
     calculate_per_pbr_score,
     fetch_employee_history,
@@ -22,11 +21,16 @@ from tools.market import (
     get_benchmark_tool,
 )
 from tools.news import news_search_tool
+from tools.web_search import get_web_search
+from observatory.tracking import init_tracing
+from observatory.prompts import load_system_prompt
 
 
-def build_agent() -> Agent:
-    """Build and return the compiled StockGenie agent."""
+def build_agent() -> Orchestrator:
+    """Build and return the compiled StockGenie orchestrator: router + general loop + skill loops."""
     from langgraph.checkpoint.memory import MemorySaver
+
+    init_tracing()
 
     # Select appropriate client based on configured API base.
     #if settings.openai_api_base and "openrouter" in settings.openai_api_base.lower():
@@ -37,13 +41,14 @@ def build_agent() -> Agent:
 
     checkpointer = MemorySaver()
 
-    tools = [
+    general_tools = [
         market_price_tool,
         currency_status_tool,
         inventory_search_tool,
         get_benchmark_tool,
         portfolio_overview_tool,
         news_search_tool,
+        get_web_search,
         get_trend_signals,
         calculate_per_pbr_score,
         fetch_financial_metrics,
@@ -51,8 +56,7 @@ def build_agent() -> Agent:
         fetch_employee_history,
     ]
 
-    # Load system prompt
-    from config.prompts import get_prompt
-    system = get_prompt("STOCK_GENIE_SYSTEM_PROMPT")
-    agent = Agent(model=model, tools=tools, checkpointer=checkpointer, system=system)
-    return agent
+    system = load_system_prompt()
+    general_agent = Agent(model=model, tools=general_tools, checkpointer=None, system=system)
+
+    return Orchestrator(model=model, general_agent=general_agent, skills=SKILLS, checkpointer=checkpointer)

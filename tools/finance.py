@@ -15,13 +15,16 @@ def _get_jsonparsed_data(url):
     data = response.read().decode("utf-8")
     return json.loads(data)
 
-
 @tool
 def calculate_per_pbr_score(ticker: str):
-    """Calculate a simple PER and PBR score for a stock ticker."""
-    per = 0
-    pbr = 0
-    if per >= 10:
+    """Calculate a simple valuation score from PER (P/E) and PBR (P/B) for a stock ticker."""
+    info = yf.Ticker(ticker).info or {}
+    per = info.get("trailingPE")
+    pbr = info.get("priceToBook")
+
+    if per is None:
+        per_score = None
+    elif per >= 10:
         per_score = 5
     elif 8 < per < 10:
         per_score = 10
@@ -29,7 +32,10 @@ def calculate_per_pbr_score(ticker: str):
         per_score = 15
     else:
         per_score = 20
-    if pbr >= 1.0:
+
+    if pbr is None:
+        pbr_score = None
+    elif pbr >= 1.0:
         pbr_score = 0
     elif 0.6 < pbr <= 1.0:
         pbr_score = 3
@@ -37,7 +43,8 @@ def calculate_per_pbr_score(ticker: str):
         pbr_score = 4
     else:
         pbr_score = 5
-    return f"PER score: {per_score}, PBR score: {pbr_score}"
+
+    return f"PER: {per}, PER score: {per_score}, PBR: {pbr}, PBR score: {pbr_score}"
 
 
 @tool
@@ -88,7 +95,6 @@ def search_company_general_info(ticker: str):
         f"Description: {stock_description}"
     )
 
-
 @tool
 def fetch_employee_history(ticker: str):
     """Fetch historical employee count and recent trends via FMP API."""
@@ -105,3 +111,5 @@ def fetch_employee_history(ticker: str):
         trend_list.append(f"{sorted_data[i]['periodOfReport']}: {change:.2f}% {direction}")
     most_recent_employees = sorted_data[0]["employeeCount"]
     return f"Most Recent Count: {most_recent_employees}, Latest 5 employee count trends: {trend_list}"
+
+
