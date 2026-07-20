@@ -26,8 +26,9 @@ AI-powered financial advisor for high-net-worth individuals.
 - `app/` — Flask web application and templates
 - `core/` — LangGraph agent orchestration
 - `tools/` — Agent tools (finance, market, news, inventory)
-- `config/` — Settings and prompts
+- `config/` — Settings
 - `db/` — Database clients (ChromaDB)
+- `observatory/` — MLflow tracing and prompt registry
 - `tests/` — Test suite
 - `scripts/` — One-off utilities
 - `notebooks/` — Jupyter notebooks

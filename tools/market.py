@@ -54,7 +54,7 @@ def currency_status_tool(currencies: str = "USD,EUR,JPY,KRW"):
 
 
 @tool
-def get_benchmark_tool(ticker: str, time_window: str ):
+def get_benchmark_tool(ticker: str, time_window: str):
     """Fetch concise benchmarks for core US indices. Some benchmark examples are S&P 500, Nasdaq Composite, Dow Jones Industrial Average, Russell 2000.
     Use the corresponding tickers to fetch the information. For example, S&P 500 is ^GSPC, Nasdaq Composite is ^IXIC, Dow Jones Industrial Average is ^DJI, Russell 2000 is ^RUT.
     available period are 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd. choose the time window accordingly

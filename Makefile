@@ -1,7 +1,10 @@
-PHONY: run test lint format typecheck clean
+PHONY: run test lint format typecheck clean mlflow
 
 run:
 	python -m app.api
+
+mlflow:
+	mlflow server --backend-store-uri sqlite:///observatory/mlflow.db --default-artifact-root ./observatory/mlartifacts --host 127.0.0.1 --port 5001
 
 test:
 	pytest tests/ -v
